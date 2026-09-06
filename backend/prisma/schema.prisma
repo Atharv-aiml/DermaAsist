@@ -1,0 +1,203 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = "file:./dev.db"
+}
+
+model User {
+  id                String    @id @default(uuid())
+  email             String    @unique
+  passwordHash      String
+  fullName          String
+  phone             String?
+  dateOfBirth       DateTime?
+  gender            String?
+  preferredLanguage String    @default("en")
+  city              String?
+  state             String?
+  role              String    @default("user")
+  emailVerified     Boolean   @default(false)
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
+
+  families          Family[]
+  familyMembers     FamilyMember[]
+  assessments       SkinAssessment[]
+  reminders         RoutineReminder[]
+  notifications     Notification[]
+  auditLogs         AuditLog[]
+}
+
+model Family {
+  id            String    @id @default(uuid())
+  primaryUserId String
+  name          String
+  createdAt     DateTime  @default(now())
+
+  primaryUser   User            @relation(fields: [primaryUserId], references: [id])
+  members       FamilyMember[]
+}
+
+model FamilyMember {
+  id           String    @id @default(uuid())
+  familyId     String
+  userId       String?
+  name         String
+  age          Int
+  gender       String
+  relationship String
+  isAuthorized Boolean   @default(false)
+  createdAt    DateTime  @default(now())
+
+  family       Family            @relation(fields: [familyId], references: [id], onDelete: Cascade)
+  user         User?             @relation(fields: [userId], references: [id])
+  assessments  SkinAssessment[]
+  reminders    RoutineReminder[]
+  appointments Appointment[]
+}
+
+model SkinAssessment {
+  id              String    @id @default(uuid())
+  familyMemberId  String?
+  userId          String
+  status          String    @default("draft")
+  bodyArea        String?
+  createdAt       DateTime  @default(now())
+
+  user            User                @relation(fields: [userId], references: [id])
+  familyMember    FamilyMember?       @relation(fields: [familyMemberId], references: [id])
+  image           SkinImage?
+  questionnaire   QuestionnaireAnswer?
+  result          AIResult?
+  recommendations Recommendation[]
+  reports         Report[]
+}
+
+model SkinImage {
+  id            String    @id @default(uuid())
+  assessmentId  String    @unique
+  filePath      String
+  originalName  String
+  mimeType      String
+  fileSize      Int
+  qualityMetrics String?
+  uploadedAt    DateTime  @default(now())
+
+  assessment    SkinAssessment @relation(fields: [assessmentId], references: [id], onDelete: Cascade)
+}
+
+model QuestionnaireAnswer {
+  id                  String    @id @default(uuid())
+  assessmentId        String    @unique
+  answers             String
+  freeTextDescription String?
+  language            String    @default("en")
+  createdAt           DateTime  @default(now())
+
+  assessment          SkinAssessment @relation(fields: [assessmentId], references: [id], onDelete: Cascade)
+}
+
+model AIResult {
+  id                 String    @id @default(uuid())
+  assessmentId       String    @unique
+  modelVersion       String
+  aiProvider         String
+  possibleConditions String
+  confidence         Float
+  severity           String
+  urgency            String
+  symptomsSummary    String
+  imageQuality       String?
+  redFlags           String
+  disclaimer         String
+  analyzedAt         DateTime  @default(now())
+
+  assessment         SkinAssessment @relation(fields: [assessmentId], references: [id], onDelete: Cascade)
+}
+
+model Recommendation {
+  id           String    @id @default(uuid())
+  assessmentId String
+  type         String
+  title        String
+  description  String
+  priority     Int       @default(0)
+
+  assessment   SkinAssessment @relation(fields: [assessmentId], references: [id], onDelete: Cascade)
+}
+
+model RoutineReminder {
+  id              String    @id @default(uuid())
+  userId          String
+  familyMemberId  String?
+  name            String
+  description     String?
+  reminderTime    String
+  repeatSchedule  String    @default("daily")
+  startDate       DateTime
+  endDate         DateTime?
+  isActive        Boolean   @default(true)
+  createdAt       DateTime  @default(now())
+
+  user            User           @relation(fields: [userId], references: [id])
+  familyMember    FamilyMember?  @relation(fields: [familyMemberId], references: [id])
+  completions     ReminderCompletion[]
+}
+
+model ReminderCompletion {
+  id             String    @id @default(uuid())
+  reminderId     String
+  completionDate DateTime
+  completedAt    DateTime  @default(now())
+
+  reminder       RoutineReminder @relation(fields: [reminderId], references: [id], onDelete: Cascade)
+}
+
+model Notification {
+  id        String    @id @default(uuid())
+  userId    String
+  type      String
+  title     String
+  message   String
+  isRead    Boolean   @default(false)
+  createdAt DateTime  @default(now())
+
+  user      User @relation(fields: [userId], references: [id])
+}
+
+model Appointment {
+  id              String    @id @default(uuid())
+  familyMemberId  String
+  type            String
+  doctorName      String?
+  appointmentDate DateTime
+  status          String    @default("scheduled")
+  notes           String?
+  createdAt       DateTime  @default(now())
+
+  familyMember    FamilyMember @relation(fields: [familyMemberId], references: [id])
+}
+
+model Report {
+  id           String    @id @default(uuid())
+  assessmentId String
+  filePath     String
+  generatedAt  DateTime  @default(now())
+
+  assessment   SkinAssessment @relation(fields: [assessmentId], references: [id])
+}
+
+model AuditLog {
+  id        String    @id @default(uuid())
+  userId    String?
+  action    String
+  resource  String
+  details   String?
+  ipAddress String?
+  createdAt DateTime  @default(now())
+
+  user      User? @relation(fields: [userId], references: [id])
+}
